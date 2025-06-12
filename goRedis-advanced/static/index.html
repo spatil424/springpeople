@@ -1,0 +1,51 @@
+
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Go Chat</title></head>
+<body>
+    <h2>Login</h2>
+    Username: <input id="username"><br>
+    Password: <input id="password" type="password"><br>
+    <button onclick="login()">Login</button>
+    <button onclick="register()">Register</button>
+    <h3>Users</h3>
+    <ul id="userList"></ul>
+    <h3>Chat</h3>
+    <div id="chatBox" style="height:200px;overflow:auto;border:1px solid #ccc;"></div>
+    <input id="messageInput"><button onclick="sendMessage()">Send</button>
+<script>
+let socket, currentUser, selectedUser;
+function login() {
+    let user = username.value, pass = password.value;
+    fetch("/login", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({username:user,password:pass})})
+    .then(res => res.ok ? (currentUser=user, initSocket(), fetchUsers()) : alert("Login failed"))
+}
+function register() {
+    fetch("/register", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({username:username.value,password:password.value})})
+    .then(res => res.text()).then(alert);
+}
+function initSocket() {
+    socket = new WebSocket("ws://" + location.host + "/ws?username=" + currentUser);
+    socket.onmessage = e => {
+        let msg = JSON.parse(e.data);
+        if (msg.from === selectedUser || msg.to === selectedUser)
+            chatBox.innerHTML += "<div><b>" + msg.from + ":</b> " + msg.content + "</div>";
+    };
+}
+function fetchUsers() {
+    fetch("/users").then(res => res.json()).then(users => {
+        userList.innerHTML = "";
+        users.forEach(u => { if(u !== currentUser) {
+            let li = document.createElement("li");
+            li.textContent = u; li.onclick = () => {selectedUser = u; chatBox.innerHTML = "";};
+            userList.appendChild(li);
+        }});
+    });
+}
+function sendMessage() {
+    socket.send(JSON.stringify({from: currentUser, to: selectedUser, content: messageInput.value}));
+    messageInput.value = "";
+}
+</script>
+</body>
+</html>
